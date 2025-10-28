@@ -1,0 +1,91 @@
+Revisão de Atualizações do Projeto ServTech
+
+Aqui está um resumo detalhado das correções, atualizações e melhorias aplicadas aos arquivos do projeto que você enviou.
+
+1. app/database/db.py (Configuração do Banco de Dados)
+
+O objetivo principal aqui era garantir que o banco de dados fosse criado no local correto e de forma segura.
+
+Correção de Caminho (Sua Solicitação Principal):
+
+Antes: O arquivo servtech.db estava sendo criado no diretório raiz de onde o script Python era executado (ex: servtech_buggy_alunos/), não dentro da pasta app/database/.
+
+Depois: Utilizei os.path.abspath(os.path.dirname(__file__)) para obter o caminho exato da pasta app/database/. O DB_FILE agora é definido usando os.path.join(DB_DIR, "servtech.db"), garantindo que o banco de dados seja sempre criado dentro de app/database/, não importa de onde o app.py (ou main.py) seja executado.
+
+Prevenção de Duplicatas (Melhoria de Robustez):
+
+Antes: O comando INSERT INTO users (username, password) VALUES ('admin','admin123') era executado toda vez que init_db() era chamado. Se o aplicativo fosse reiniciado várias vezes, isso criaria múltiplos usuários 'admin'.
+
+Depois: Adicionei uma verificação (SELECT id FROM users WHERE username = 'admin') para inserir o usuário 'admin' apenas se ele ainda não existir no banco.
+
+2. app/scripts/repository.py (Acesso aos Dados)
+
+Esta foi a atualização mais crítica, focada em segurança e na correção de imports.
+
+CORREÇÃO DE SEGURANÇA (SQL Injection):
+
+Antes: Todas as consultas SQL usavam f-strings (ex: f"SELECT ... WHERE username = '{username}'"). Isso é uma falha de segurança grave chamada SQL Injection. Um invasor poderia digitar ' OR 1=1 -- no campo de usuário e fazer login sem senha.
+
+Depois: Substituí todas as consultas SQL por consultas parametrizadas, usando ? como placeholder (ex: sql = "SELECT ... WHERE username = ?" e cur.execute(sql, (username, password))). Isso trata qualquer entrada do usuário como texto puro, neutralizando o risco de SQL Injection. Isso foi feito em check_login, upsert_order, delete_order, and search_orders.
+
+Correção de Import:
+
+Antes: O import era from db import get_conn.
+
+Depois: Corrigido para from app.database.db import get_conn, para refletir a estrutura de pacotes que estávamos montando (onde app é o pacote principal).
+
+Melhoria (Tratamento de Erro):
+
+Adicionei tratamento básico de erro (try/except) em save_remember_me para evitar que o aplicativo quebre se, por algum motivo, não conseguir escrever no arquivo remember_me.txt.
+
+3. app/scripts/validators.py (Validações)
+
+As funções de validação originais não faziam nada (sempre retornavam True).
+
+Validação Real:
+
+Antes: is_valid_cliente e is_valid_preco sempre retornavam True.
+
+Depois:
+
+is_valid_cliente agora verifica se o nome não está vazio (if not nome or len(nome.strip()) == 0:).
+
+is_valid_preco agora usa um try/except para verificar se o valor (ignorando se estiver vazio) pode ser convertido para um float (aceitando . ou , como separador).
+
+4. app.py (Aplicação Principal)
+
+Este arquivo recebeu as correções para o erro de execução e diversas melhorias de interface (UI) e experiência do usuário (UX).
+
+Correção de Imports (Solução do Erro ModuleNotFoundError):
+
+Antes: Os imports eram import repository, import db, etc. Isso causou o erro ModuleNotFoundError que você viu, pois o Python não sabia onde encontrar esses arquivos.
+
+Depois: Corrigi todos os imports para usar a estrutura de pacotes completa (ex: import app.scripts.repository as repository, import app.database.db as db). (Nota: Como expliquei no chat, isso precisa ser combinado com a renomeação do app.py para main.py e a adição dos arquivos __init__.py para funcionar perfeitamente).
+
+Lógica "Lembrar-me" Funcional:
+
+Antes: A caixa "Lembrar login" era marcada, mas o app não lia o arquivo ao iniciar.
+
+Depois: Implementei a função _check_remember_me() (chamada no __init__ do LoginFrame) para ler o arquivo remember_me.txt e preencher automaticamente os campos de usuário e senha se o arquivo existir.
+
+Adicionei lógica em _do_login para apagar o arquivo remember_me.txt se o usuário fizer login com a caixa desmarcada.
+
+Distinção entre "Criar" e "Atualizar":
+
+Antes: O botão _save chamava repository.upsert_order, que sempre criava um novo registro (INSERT), mesmo que o usuário tivesse selecionado um item para editar.
+
+Depois: A função _save agora verifica if self.selected_id:. Embora a lógica de UPDATE (atualização) em si ainda precise ser criada no repository.py, a interface agora distingue corretamente quando deve criar (ID está nulo) e quando deve atualizar (ID está selecionado).
+
+Melhorias de UI/UX (Qualidade de Vida):
+
+Adicionei um botão "Limpar Campos" (_clear_form) para limpar o formulário.
+
+O formulário agora é limpo automaticamente após Salvar, Remover, Buscar ou Recarregar.
+
+Adicionei messagebox de aviso para impedir que o usuário clique em "Remover" ou "Buscar" sem ter selecionado um item ou digitado um termo.
+
+Usei um ttk.LabelFrame para agrupar visualmente o formulário.
+
+Adicionei um tema ('clam') e um tamanho mínimo (minsize) à janela principal.
+
+Centralizei a tela de login na janela.
